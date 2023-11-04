@@ -22,10 +22,10 @@ BINDIR=.
 # to continue the line. You don't need it after the last source file.
 # Note: The source directory, $(SRCDIR), needs to be given for each
 # individual file. The $(SRCDIR) below shows how it is done for the
-# incrypt.c file. Also note that there should only be one SRCS= (i.e. don't
+# aes.c file. Also note that there should only be one SRCS= (i.e. don't
 # add more of them as you add files).
 #--------------------------------------------------------------------
-SRCS=$(SRCDIR)/incrypt.c 
+SRCS=$(SRCDIR)/aes.c $(SRCDIR)/encrypt.c
 
 #--------------------------------------------------------------------
 # You don't need to edit the next few lines. They define other flags
@@ -38,7 +38,7 @@ CFLAGS   = $(OPTS) $(INCLUDE) $(DEBUG)
 #--------------------------------------------------------------------
 # Add the name of the executable after the $(BINDIR)/
 #--------------------------------------------------------------------
-TARGET = $(BINDIR)/incrypt
+TARGET = $(BINDIR)/aes
 
 all: $(TARGET)
 
@@ -60,4 +60,4 @@ clean:
 # as well as the executable
 #--------------------------------------------------------------------
 cleanall:
-	rm -f $(OBJS) $(BINDIR)/incrypt
+	rm -f $(OBJS) $(BINDIR)/aes
