@@ -43,28 +43,6 @@
 
 
 
-// /* Substitution box */
-// static const uint8_t sbox[256] = 
-// {
-//     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
-//     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
-//     0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
-//     0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
-//     0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
-//     0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
-//     0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
-//     0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
-//     0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
-//     0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
-//     0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
-//     0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
-//     0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
-//     0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
-//     0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
-//     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
-// };
-
-
 // ********************************************************************************
 // GLOBALS
 // ********************************************************************************
@@ -87,21 +65,6 @@ uint32_t* keyWords = NULL;
 // ********************************************************************************
 
 
-// /**
-//  * Substitute the input byte using s-box
-//  */
-// uint8_t subByte(uint8_t inputByte) {
-
-//     // printf("Input: %X\n", inputByte);
-
-//     uint8_t MSB = (inputByte & 0xF0) >> 4; // 0xF-
-//     uint8_t LSB = (inputByte & 0xF);      // 0x-F
-
-//     // printf("MSB: %X, LSB: %X\n", MSB, LSB);
-
-//     return sbox[(16 * MSB) + LSB]; 
-
-// }
 
 /**
  * Substitutes the bytes in the the input word using the s-box
@@ -218,81 +181,11 @@ void createKeySchedule(uint32_t* key, int keyLengthInWords, int numRounds) {
 
         }
 
-        printf("Key schedule %3d: %X\n", i, keySchedule[i]);
+        // printf("Key schedule %3d: %X\n", i, keySchedule[i]);
         
     }
 
 }
-
-
-
-// void subBytes(uint8_t* block) {
-
-//     for (int i = 0; i < BUFFER_SIZE; i++)
-//     {
-//         block[i] = subByte(block[i]);
-//     }
-
-// }
-
-// void shiftRows(uint8_t* block) {
-
-//     for (int i = 0; i < BLOCK_ROW_COL_SIZE; i++)
-//     {
-
-//         // 0, don't shift
-//         // 1, shift left once
-//         // 2, shift left twice
-//         // 3, shift left 3 times
-
-//         for (int j = 0; j < i; j++)
-//         {
-
-//             int8_t temp = block[BLOCK_ROW_COL_SIZE * i];
-//             block[BLOCK_ROW_COL_SIZE * i] = block[(BLOCK_ROW_COL_SIZE * i) + 1];
-//             block[(BLOCK_ROW_COL_SIZE * i) + 1] = block[(BLOCK_ROW_COL_SIZE * i) + 2];
-//             block[(BLOCK_ROW_COL_SIZE * i) + 2] = block[(BLOCK_ROW_COL_SIZE * i) + 3];
-//             block[(BLOCK_ROW_COL_SIZE * i) + 3] = temp;
-
-//         }
-
-//     }
-
-// }
-
-// void mixColumns(uint8_t* block) {
-
-//     uint8_t a[16] =
-//     {
-//         0x02, 0x03, 0x01, 0x01,
-//         0x01, 0x02, 0x03, 0x01,
-//         0x01, 0x01, 0x02, 0x03,
-//         0x03, 0x01, 0x01, 0x02
-//     };
-
-//     for (int i = 0; i < BLOCK_ROW_COL_SIZE; i++)
-//     {
-
-//         uint8_t r1 = block[(BLOCK_ROW_COL_SIZE * 0) + i];
-//         uint8_t r2 = block[(BLOCK_ROW_COL_SIZE * 1) + i];
-//         uint8_t r3 = block[(BLOCK_ROW_COL_SIZE * 2) + i];
-//         uint8_t r4 = block[(BLOCK_ROW_COL_SIZE * 3) + i];
-
-//         for (int j = 0; i < BLOCK_ROW_COL_SIZE; i++)
-//         {
-
-//             uint8_t a1 = a[(BLOCK_ROW_COL_SIZE * j) + 0];
-//             uint8_t a2 = a[(BLOCK_ROW_COL_SIZE * j) + 1];
-//             uint8_t a3 = a[(BLOCK_ROW_COL_SIZE * j) + 2];
-//             uint8_t a4 = a[(BLOCK_ROW_COL_SIZE * j) + 3];
-
-//             block[(BLOCK_ROW_COL_SIZE * j) + i] = (r1 * a1) ^ (r2 * a2) ^ (r3 * a3) ^ (r4 * a4);
-
-//         }
-
-//     }
-
-// }
 
 
 
@@ -303,17 +196,15 @@ void addRoundKey(uint8_t* block, int round) {
     for (int i = 0; i < BLOCK_ROW_COL_SIZE; i++)
     {
 
-        // 0  1  2  3
-        // 4  5  6  7
-        // 8  9  10 11
-        // 12 13 14 15
+        uint8_t k1 = (keySchedule[l + i] & (0xFF << 24)) >> 24;
+        uint8_t k2 = (keySchedule[l + i] & (0xFF << 16)) >> 16;
+        uint8_t k3 = (keySchedule[l + i] & (0xFF << 8)) >> 8;
+        uint8_t k4 = keySchedule[l + i]; 
 
-        // XOR block columns with key schedule column
-
-        block[i] ^= keySchedule[l + 0]; // 0 xor 0
-        block[4 + i] ^= keySchedule[l + 1]; // 1 xor 1
-        block[8 + i] ^= keySchedule[l + 2]; // 2 xor 2
-        block[12 + i] ^= keySchedule[l + 3]; // 3 xor 3
+        block[i] ^= k1; // 0 xor 0
+        block[(4 * 1) + i] ^= k2; // 1 xor 1
+        block[(4 * 2) + i] ^= k3; // 2 xor 2
+        block[(4 * 3) + i] ^= k4; // 3 xor 3
 
     }
 
@@ -390,6 +281,31 @@ void createRoundConstantArray(uint8_t* Rcon, int RconLength) {
 
 
 
+void swapRowsAndColumns(uint8_t* block) {
+
+    // swap rows and columns
+    uint8_t swap[16] = {0};
+    for (int i = 0; i < BLOCK_ROW_COL_SIZE; i++)
+    {
+
+        for (int j = 0; j < BLOCK_ROW_COL_SIZE; j++)
+        {
+
+            swap[(4 * i) + j] = block[i + (4 * j)]; 
+
+        }
+
+    }
+    
+    for (int i = 0; i < BUFFER_SIZE; i++)
+    {
+        block[i] = swap[i];
+    }
+
+}
+
+
+
 void cleanup() {
 
     // if ptread open (not NULL), close it
@@ -433,8 +349,10 @@ int main(int argc, char** argv) {
     // FILE *ptread, *ptwrite;
 
     uint8_t inBuf[BUFFER_SIZE] = {0};
+    uint8_t inputByte[1] = {0};
 
-    char* filename = NULL;
+    char* inputFilename = NULL;
+    char* outputFilename = NULL;
     int keyCanonLength = 0;
     int keyInputLength = 0;
     int RconArraySize = 0;
@@ -444,15 +362,16 @@ int main(int argc, char** argv) {
     int addToKeyWords = 7;
     int keyIndex = 0;
     uint32_t keyPiece = 0;
+    int mode = 0;
 
     // will eventually want to change this to check for 5 args (current args plus -e or -d)
-    if (argc == 4) // the user provided 4 arguments (./<filename> -K <key> <inputfile>)
+    if (argc == 6) // the user provided 4 arguments (./<filename> -e -K <key> <inputfile> <outputfile>)
     {
         
-        if (strncmp(argv[1], "-K", 2) == 0) // if we are provided a flag indicating a key...
+        if (strncmp(argv[2], "-K", 2) == 0) // if we are provided a flag indicating a key...
         {
 
-            keyInputLength = strnlen(argv[2], 32); // determine key length of input
+            keyInputLength = strnlen(argv[3], 32); // determine key length of input
 
             printf("key length: %d\n", keyInputLength * 4);
 
@@ -512,7 +431,7 @@ int main(int argc, char** argv) {
             for (int i = 0; i < keyInputLength; i++) // check that key contains legal data
             {
 
-                int keyPieceBit = characterToHex(argv[2][i]);
+                int keyPieceBit = characterToHex(argv[3][i]);
 
                 if (keyPieceBit == -1)
                 {
@@ -521,9 +440,6 @@ int main(int argc, char** argv) {
                 }
                 else
                 {
-
-                    // printf("Shifting by %d\n", addToKeyWords * 4);
-                    // printf("Val: %X\n", keyPieceBit << ((addToKeyWords) * 4));
 
                     if (addToKeyWords == 0) // build and add to keyWords
                     {
@@ -548,8 +464,29 @@ int main(int argc, char** argv) {
             }
 
         }
+        else
+        {
+            // notify user of correct command signature
+            printf("error in command sig\n");
+            exit(-1);
+        }
 
-        filename = argv[3];
+        if (strncmp(argv[1], "-e", 2) == 0)
+        {
+            mode = 0;
+        }
+        else if (strncmp(argv[1], "-d", 2) == 0)
+        {
+            mode = 1;
+        }
+        else
+        {
+            // invalid option!
+            printf("Invalid option\n");
+        }
+
+        inputFilename = argv[4];
+        outputFilename = argv[5];
 
     }
     else
@@ -558,17 +495,18 @@ int main(int argc, char** argv) {
         exit(-1);
     }
 
-    if ((ptread = fopen(filename, "r")) == NULL)
+    if ((ptread = fopen(inputFilename, "rb")) == NULL)
     {
-        printf("File %s cannot be opened\n", filename);
+        printf("File %s cannot be opened\n", inputFilename);
         exit(-1);
     }
 
-    if ((ptwrite = fopen("output.txt", "w")) == NULL)
+    if ((ptwrite = fopen(outputFilename, "wb")) == NULL)
     {
-        printf("File %s cannot be opened\n", "output.txt");
+        printf("File %s cannot be opened\n", outputFilename);
         exit(-1);
     } 
+    fseek(ptwrite, 0, SEEK_SET);
 
     // parse for key
     //      L put words into their respective array spots
@@ -600,54 +538,102 @@ int main(int argc, char** argv) {
 
     
 
+    // put input in this order:
+    // 0  4  8 12
+    // 1  5  9 13
+    // 2  6 10 14
+    // 3  7 11 15
 
-    // parse through input file
-    while (feof(ptread) == 0)
+    
+
+    if (0 != fread(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptread)) // read in 16 bytes
     {
-        if (0 != fread(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptread))
+        swapRowsAndColumns(inBuf);
+    }
+    else
+    {
+        printf("Nothing was read!\n");
+        cleanup();
+        exit(-1);
+    }
+    
+
+
+    printf("Before: %s\n", inBuf);
+    printf("buf contents before: 0x");
+    for (int i = 0; i < BUFFER_SIZE; i++)
+    {
+        printf("%2X", inBuf[i]);
+    }
+    printf("\n");
+    
+
+    if (mode == 0) // encrypt
+    {
+
+        addRoundKey(inBuf, 0); // add roundkey (add cipher key to plaintext)
+
+        for (int i = 1; i < numRounds; i++)
         {
 
-            printf("something was read\n");
-            
-            // perform round operations:
-            // L sub-bytes
-            // L shift rows
-            // L mix columns
-            // L add round key
+            subBytes(inBuf);
+            shiftRows(inBuf);
+            mixColumns(inBuf);
+            addRoundKey(inBuf, i);
 
-            addRoundKey(inBuf, 0); // add roundkey (add cipher key to plaintext)
+        }
 
-            for (int i = 1; i < numRounds-1; i++)
-            {
+        subBytes(inBuf); // subBytes
+        shiftRows(inBuf); // shiftRows
+        addRoundKey(inBuf, numRounds); // addRoundKey
 
-                subBytes(inBuf);
-                shiftRows(inBuf);
-                mixColumns(inBuf);
-                addRoundKey(inBuf, i);
+    }
+    else // decrypt
+    {
 
-            }
+        addRoundKey(inBuf, 0); // add roundkey (add cipher key to ciphertext)
 
-            subBytes(inBuf); // subBytes
-            shiftRows(inBuf); // shiftRows
-            addRoundKey(inBuf, numRounds); // addRoundKey
-
-
-
-
-
-            printf("Writing %lu thing(s) of size %d to output\n", sizeof(uint8_t), BUFFER_SIZE);
-
-            // write encrypted buffer to output file (append that is)
-            //      L actually shouldn't we write over the block we just processed? (if output file is same as input)
-            fwrite(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptwrite);
+        for (int i = 1; i < numRounds-1; i++)
+        {
+            invShiftRows(inBuf);
+            invSubBytes(inBuf);
+            invMixColumns(inBuf);
+            addRoundKey(inBuf, i);
             
         }
 
+        invShiftRows(inBuf);
+        invSubBytes(inBuf);
         
-        
-        memset(inBuf, 0, BUFFER_SIZE); // reset buffer to prevent repeats when EOF reached
+        addRoundKey(inBuf, numRounds);
 
     }
+
+
+
+    swapRowsAndColumns(inBuf);
+
+    printf("Writing %lu thing(s) of size %d to output\n", sizeof(uint8_t), BUFFER_SIZE);
+
+    // write encrypted buffer to output file (append that is)
+    //      L actually shouldn't we write over the block we just processed? (if output file is same as input)
+    fwrite(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptwrite);
+        
+    
+
+    printf("After: %s\n", inBuf);
+    printf("buf contents after: 0x");
+    for (int i = 0; i < BUFFER_SIZE; i++)
+    {
+        printf("%2X", inBuf[i]);
+    }
+    printf("\n");
+
+    
+    
+    memset(inBuf, 0, BUFFER_SIZE); // reset buffer to prevent repeats when EOF reached
+
+    // }
 
 
 

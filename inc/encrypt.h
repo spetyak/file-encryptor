@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <stdint.h>
 #ifndef ENCRYPT_H_
 #define ENCRYPT_H_
 

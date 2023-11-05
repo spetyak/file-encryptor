@@ -25,7 +25,7 @@ BINDIR=.
 # aes.c file. Also note that there should only be one SRCS= (i.e. don't
 # add more of them as you add files).
 #--------------------------------------------------------------------
-SRCS=$(SRCDIR)/aes.c $(SRCDIR)/encrypt.c
+SRCS=$(SRCDIR)/aes.c $(SRCDIR)/encrypt.c $(SRCDIR)/decrypt.c
 
 #--------------------------------------------------------------------
 # You don't need to edit the next few lines. They define other flags
