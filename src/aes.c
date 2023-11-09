@@ -47,10 +47,14 @@
 // GLOBALS
 // ********************************************************************************
 
-FILE *ptread, *ptwrite;
-uint8_t* Rcon = NULL;
-uint32_t* keySchedule = NULL;
-uint32_t* keyWords = NULL;
+FILE *ptread = NULL;            // read file pointer
+FILE *ptwrite = NULL;           // write file pointer
+uint8_t* Rcon = NULL;           // round constant array
+uint32_t* keySchedule = NULL;   // key schedule array
+uint32_t* keyWords = NULL;      // array of words that make up key
+uint128_t* key128 = NULL;       // 128 bit key struct pointer
+uint192_t* key192 = NULL;       // 192 bit key struct pointer
+uint256_t* key256 = NULL;       // 256 bit key struct pointer
 
 
 
@@ -58,7 +62,7 @@ uint32_t* keyWords = NULL;
 // PROTOTYPES
 // ********************************************************************************
 
-
+void cleanup();
 
 // ********************************************************************************
 // FUNCTIONS
@@ -109,13 +113,14 @@ void createKeySchedule(uint32_t* key, int keyLengthInWords, int numRounds) {
     //          L array will be of size blockSize * (numRounds + 1)
     //                                  4 bytes * (16 * (numRounds + 1))
 
-    int scheduleLength = (keyLengthInWords * (numRounds + 1)); 
+    int scheduleLength = (AES_NUM_BLOCKS * (numRounds + 1)); 
 
     // allocate space for key schedule array
     keySchedule = malloc(sizeof(uint32_t) * scheduleLength);
     if (!keySchedule)
     {
         printf("Allocation of key schedule failed!\n");
+        cleanup();
         exit(-1);
     }
 
@@ -136,43 +141,16 @@ void createKeySchedule(uint32_t* key, int keyLengthInWords, int numRounds) {
             // (x is denoted as {02}) in the field GF(2^8), as discussed in Sec. 4.2 (note that i starts at 1, not 0).
 
             uint32_t roundConstant = Rcon[(i / keyLengthInWords) - 1] << (3 * 8);
-            // printf("Rcon: %X\n", Rcon[(i / keyLengthInWords) - 1]);
-
-
-
-            //      From Fig. 11, it can be seen that the first <keyWordLength> words of the expanded key are filled with the
-            // Cipher Key. Every following word, w[i], is equal to the XOR of the previous word, w[i-1], 
-            // and the word <keyWordLength> positions earlier, w[i - keyWordLength]. 
-            // For words in positions that are a multiple of <keyWordLength>, a transformation is applied to 
-            // w[i-1] prior to the XOR, followed by an XOR with a round constant, Rcon[i]. This transformation 
-            // consists of a cyclic shift of the bytes in a word (RotWord()), followed by the application 
-            // of a table lookup to all four bytes of the word (SubWord()).
-            // 
-            //      It is important to note that the Key Expansion routine for 256-bit Cipher Keys (keyWordLength = 8) is
-            // slightly different than for 128- and 192-bit Cipher Keys. If keyWordLength = 8 and i-4 is a multiple of keyWordLength,
-            // then SubWord() is applied to w[i-1] prior to the XOR. 
 
             
 
             if (keyLengthInWords == AES_256_KEY_LENGTH_WORDS && ((i - 4) % keyLengthInWords == 0))
             {
-
-                // transformation applied to previous word w[i-1]
-                // XOR with round constant Rcon
-
-                keySchedule[i] = (subWord(rotWord(keySchedule[i-1])) ^ roundConstant) ^ keySchedule[i - keyLengthInWords]; 
-
+                keySchedule[i] = subWord(keySchedule[i-1]) ^ keySchedule[i - keyLengthInWords];
             }
             else if ((i - keyLengthInWords) % keyLengthInWords == 0)
             {
-
-                uint32_t afterRotWord = rotWord(keySchedule[i-1]);
-                uint32_t afterSubWord = subWord(afterRotWord);
-                uint32_t afterXORRcon = afterSubWord ^ roundConstant;
-                uint32_t wink = keySchedule[i - keyLengthInWords];
-                uint32_t tempXORwink = (afterXORRcon) ^ (wink);
-                keySchedule[i] = tempXORwink;
-
+                keySchedule[i] = (subWord(rotWord(keySchedule[i-1])) ^ roundConstant) ^ keySchedule[i - keyLengthInWords];
             }
             else
             {
@@ -181,7 +159,7 @@ void createKeySchedule(uint32_t* key, int keyLengthInWords, int numRounds) {
 
         }
 
-        // printf("Key schedule %3d: %X\n", i, keySchedule[i]);
+        // printf("key schedule %3d: 0x%X\n", i, keySchedule[i]);
         
     }
 
@@ -199,12 +177,12 @@ void addRoundKey(uint8_t* block, int round) {
         uint8_t k1 = (keySchedule[l + i] & (0xFF << 24)) >> 24;
         uint8_t k2 = (keySchedule[l + i] & (0xFF << 16)) >> 16;
         uint8_t k3 = (keySchedule[l + i] & (0xFF << 8)) >> 8;
-        uint8_t k4 = keySchedule[l + i]; 
+        uint8_t k4 = keySchedule[l + i] & 0xFF; 
 
-        block[i] ^= k1; // 0 xor 0
-        block[(4 * 1) + i] ^= k2; // 1 xor 1
-        block[(4 * 2) + i] ^= k3; // 2 xor 2
-        block[(4 * 3) + i] ^= k4; // 3 xor 3
+        block[i] ^= k1;
+        block[(4 * 1) + i] ^= k2;
+        block[(4 * 2) + i] ^= k3;
+        block[(4 * 3) + i] ^= k4; 
 
     }
 
@@ -257,9 +235,17 @@ int characterToHex(char c) {
 
 
 
-void createRoundConstantArray(uint8_t* Rcon, int RconLength) {
+void createRoundConstantArray(int RconArraySize) {
 
-    for (int i = 0; i < RconLength; i++)
+    Rcon = malloc(sizeof(uint8_t) * RconArraySize);
+    if (Rcon == NULL)
+    {
+        printf("Unable to allocate round constant array!\n");
+        cleanup();
+        exit(-1);
+    }
+
+    for (int i = 0; i < RconArraySize; i++)
     {
 
         if (i == 0)
@@ -268,11 +254,11 @@ void createRoundConstantArray(uint8_t* Rcon, int RconLength) {
         }
         else if (i > 0 && Rcon[i-1] < 0x80)
         {
-            Rcon[i] = 2 * Rcon[i-1];
+            Rcon[i] = Rcon[i-1] << 1;
         }
         else
         {
-            Rcon[i] = (2 * Rcon[i-1]) ^ 0x11B;
+            Rcon[i] = (Rcon[i-1] << 1) ^ 0x11B;
         }
 
     }
@@ -283,23 +269,18 @@ void createRoundConstantArray(uint8_t* Rcon, int RconLength) {
 
 void swapRowsAndColumns(uint8_t* block) {
 
-    // swap rows and columns
-    uint8_t swap[16] = {0};
     for (int i = 0; i < BLOCK_ROW_COL_SIZE; i++)
     {
 
-        for (int j = 0; j < BLOCK_ROW_COL_SIZE; j++)
+        for (int j = i; j < BLOCK_ROW_COL_SIZE; j++)
         {
 
-            swap[(4 * i) + j] = block[i + (4 * j)]; 
+            uint8_t temp = block[(4 * i) + j];          
+            block[(4 * i) + j] = block[(4 * j) + i];
+            block[(4 * j) + i] = temp;
 
         }
 
-    }
-    
-    for (int i = 0; i < BUFFER_SIZE; i++)
-    {
-        block[i] = swap[i];
     }
 
 }
@@ -318,11 +299,6 @@ void cleanup() {
         fclose(ptwrite);
     }
 
-    // if keyWords was allocated (not NULL), free it
-    if (keyWords) {
-        free(keyWords);
-    }
-
     // if Rcon was allocated (not NULL), free it
     if (Rcon) {
         free(Rcon);
@@ -331,6 +307,21 @@ void cleanup() {
     // if keySchedule was allocated (not NULL), free it
     if (keySchedule) {
         free(keySchedule);
+    }
+    
+    // if the 128 bit key struct was allocated (not NULL), free it
+    if (key128) {
+        free(key128);
+    }
+
+    // if the 192 bit key struct was allocated (not NULL), free it
+    if (key192) {
+        free(key192);
+    }
+
+    // if the 256 bit key struct was allocated (not NULL), free it
+    if (key256) {
+        free(key256);
     }
 
 }
@@ -341,28 +332,20 @@ void cleanup() {
 
 int main(int argc, char** argv) {
 
-    // add algorithm
+    uint8_t inBuf[BUFFER_SIZE] = {0}; // file input
 
-    // read in plaintext 
-    // L read in 16 bytes at a time
+    char* inputFilename = NULL; // input filename pointer
+    char* outputFilename = NULL; // output filename pointer
+    int keyCanonLength = 0;     // actual length of key for encryption
+    int keyInputLength = 0;     // length of user provided key 
+    int RconArraySize = 0;      // size of round constant array, dependent on key size
+    int numRounds = 0;          // the number of rounds for a given key size
+    int addToKeyWords = 7;      // 
+    int keyIndex = 0;           // 
+    uint32_t keyPiece = 0;      // 
+    int mode = 0;               // 0 for encryption, 1 for decryption
 
-    // FILE *ptread, *ptwrite;
 
-    uint8_t inBuf[BUFFER_SIZE] = {0};
-    uint8_t inputByte[1] = {0};
-
-    char* inputFilename = NULL;
-    char* outputFilename = NULL;
-    int keyCanonLength = 0;
-    int keyInputLength = 0;
-    int RconArraySize = 0;
-    // uint32_t* keyWords = NULL;
-    uint128_t* key = NULL;
-    int numRounds = 0;
-    int addToKeyWords = 7;
-    int keyIndex = 0;
-    uint32_t keyPiece = 0;
-    int mode = 0;
 
     // will eventually want to change this to check for 5 args (current args plus -e or -d)
     if (argc == 6) // the user provided 4 arguments (./<filename> -e -K <key> <inputfile> <outputfile>)
@@ -371,22 +354,21 @@ int main(int argc, char** argv) {
         if (strncmp(argv[2], "-K", 2) == 0) // if we are provided a flag indicating a key...
         {
 
-            keyInputLength = strnlen(argv[3], 32); // determine key length of input
+            keyInputLength = strnlen(argv[3], 64); // determine key length of input
 
-            printf("key length: %d\n", keyInputLength * 4);
 
-        
 
             if (keyInputLength * 4 == 128)
             {
 
-                key = malloc(sizeof(uint128_t));
-                if (!key)
+                key128 = malloc(sizeof(uint128_t));
+                if (!key128)
                 {
                     printf("Unable to allocate space for 128 bit key!\n");
+                    cleanup();
                     exit(-1);
                 }
-                keyWords = key->w;
+                keyWords = key128->w;
                 numRounds = AES_128_NUM_ROUNDS;
                 keyCanonLength = AES_128_KEY_LENGTH_WORDS;
                 RconArraySize = 10;
@@ -395,13 +377,14 @@ int main(int argc, char** argv) {
             else if (keyInputLength * 4 == 192)
             {
 
-                key = malloc(sizeof(uint192_t));
-                if (!key)
+                key192 = malloc(sizeof(uint192_t));
+                if (!key192)
                 {
                     printf("Unable to allocate space for 192 bit key!\n");
+                    cleanup();
                     exit(-1);
                 }
-                keyWords = key->w;
+                keyWords = key192->w;
                 numRounds = AES_192_NUM_ROUNDS;
                 keyCanonLength = AES_192_KEY_LENGTH_WORDS;
                 RconArraySize = 8;
@@ -410,13 +393,14 @@ int main(int argc, char** argv) {
             else if (keyInputLength * 4 == 256)
             {
 
-                key = malloc(sizeof(uint256_t));
-                if (!key)
+                key256 = malloc(sizeof(uint256_t));
+                if (!key256)
                 {
                     printf("Unable to allocate space for 256 bit key!\n");
+                    cleanup();
                     exit(-1);
                 }
-                keyWords = key->w;
+                keyWords = key256->w;
                 numRounds = AES_256_NUM_ROUNDS;
                 keyCanonLength = AES_256_KEY_LENGTH_WORDS;
                 RconArraySize = 7;
@@ -425,6 +409,7 @@ int main(int argc, char** argv) {
             else
             {
                 printf("Invalid key length! Keys must be of size 128, 192, or 256 bits!");
+                cleanup();
                 exit(-1);
             }
 
@@ -436,6 +421,7 @@ int main(int argc, char** argv) {
                 if (keyPieceBit == -1)
                 {
                     printf("Illegal character! Key can only use 0123456789ABCDEF!\n");
+                    cleanup();
                     exit(-1);
                 }
                 else
@@ -464,25 +450,26 @@ int main(int argc, char** argv) {
             }
 
         }
-        else
+        else // notify user of correct command signature
         {
-            // notify user of correct command signature
-            printf("error in command sig\n");
+            printf("error in command signature\n");
+            cleanup();
             exit(-1);
         }
 
-        if (strncmp(argv[1], "-e", 2) == 0)
+        if (strncmp(argv[1], "-e", 2) == 0) // user wants to encrypt
         {
             mode = 0;
         }
-        else if (strncmp(argv[1], "-d", 2) == 0)
+        else if (strncmp(argv[1], "-d", 2) == 0) // user wants to decrypt
         {
             mode = 1;
         }
         else
         {
-            // invalid option!
             printf("Invalid option\n");
+            cleanup();
+            exit(-1);
         }
 
         inputFilename = argv[4];
@@ -498,57 +485,30 @@ int main(int argc, char** argv) {
     if ((ptread = fopen(inputFilename, "rb")) == NULL)
     {
         printf("File %s cannot be opened\n", inputFilename);
+        cleanup();
         exit(-1);
     }
 
     if ((ptwrite = fopen(outputFilename, "wb")) == NULL)
     {
         printf("File %s cannot be opened\n", outputFilename);
+        cleanup();
         exit(-1);
     } 
-    fseek(ptwrite, 0, SEEK_SET);
+    fseek(ptwrite, 0, SEEK_SET); // move write pointer to beginning of file
 
-    // parse for key
-    //      L put words into their respective array spots
-    //      L as you are doing so, check that characters are legal byte characters (ie. 0123456789ABCDEF)
-    //      L if any other characters are found, exit and display error
-    //      L keep track of key length (stop if greater than 256)
-    //              L actual character lengths are as follows:
-    //              L 128 bit key   =   32 characters   (bytes are represented by 2 characters, and there are 16 bytes)
-    //              L 192 bit key   =   48 characters   (bytes are represented by 2 characters, and there are 24 bytes)
-    //              L 256 bit key   =   64 characters   (bytes are represented by 2 characters, and there are 32 bytes)
-
-    // look for -K and the input following immediately after
-
-
-
-    // create round constants
-    Rcon = malloc(sizeof(uint8_t) * RconArraySize);
-    if (Rcon == NULL)
-    {
-        printf("Unable to allocate round constant array!\n");
-        exit(-1);
-    }
-
-    createRoundConstantArray(Rcon, RconArraySize);
-
-    // expand given key
-    createKeySchedule(keyWords, keyCanonLength, numRounds);
 
 
     
+    createRoundConstantArray(RconArraySize); // create round constants array
+    createKeySchedule(keyWords, keyCanonLength, numRounds); // expand given key
 
-    // put input in this order:
-    // 0  4  8 12
-    // 1  5  9 13
-    // 2  6 10 14
-    // 3  7 11 15
 
     
 
     if (0 != fread(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptread)) // read in 16 bytes
     {
-        swapRowsAndColumns(inBuf);
+        swapRowsAndColumns(inBuf); // get input in proper column-row order so operations behave as expected
     }
     else
     {
@@ -559,13 +519,13 @@ int main(int argc, char** argv) {
     
 
 
-    printf("Before: %s\n", inBuf);
     printf("buf contents before: 0x");
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
         printf("%2X", inBuf[i]);
     }
     printf("\n");
+    
     
 
     if (mode == 0) // encrypt
@@ -591,27 +551,28 @@ int main(int argc, char** argv) {
     else // decrypt
     {
 
-        addRoundKey(inBuf, 0); // add roundkey (add cipher key to ciphertext)
+        // decryption starts at numRounds and works back down
 
-        for (int i = 1; i < numRounds-1; i++)
+        addRoundKey(inBuf, numRounds); 
+
+        for (int i = numRounds-1; i > 0; i--)
         {
             invShiftRows(inBuf);
             invSubBytes(inBuf);
-            invMixColumns(inBuf);
             addRoundKey(inBuf, i);
+            invMixColumns(inBuf);
             
         }
 
         invShiftRows(inBuf);
         invSubBytes(inBuf);
-        
-        addRoundKey(inBuf, numRounds);
+        addRoundKey(inBuf, 0);
 
     }
 
 
 
-    swapRowsAndColumns(inBuf);
+    swapRowsAndColumns(inBuf); // swap back state array so that output is readable (readable in the case of decrypted messages that is)
 
     printf("Writing %lu thing(s) of size %d to output\n", sizeof(uint8_t), BUFFER_SIZE);
 
@@ -621,7 +582,6 @@ int main(int argc, char** argv) {
         
     
 
-    printf("After: %s\n", inBuf);
     printf("buf contents after: 0x");
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
@@ -633,15 +593,8 @@ int main(int argc, char** argv) {
     
     memset(inBuf, 0, BUFFER_SIZE); // reset buffer to prevent repeats when EOF reached
 
-    // }
 
 
-
-    // fclose(ptwrite);
-    // fclose(ptread);
-    // free(keyWords);
-    // free(Rcon);
-    // free(keySchedule);
     cleanup();
 
     return 0;

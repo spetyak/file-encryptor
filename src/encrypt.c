@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "../inc/encrypt.h"
 
 /* Substitution s-box */
@@ -73,7 +72,7 @@ void shiftRows(uint8_t* block) {
 }
 
 
-uint8_t dumbMath(uint8_t a, uint8_t b) {
+uint8_t mixMath(uint8_t a, uint8_t b) {
 
     if ((a & 0x80) != 0 && b != 1)
     {
@@ -155,10 +154,10 @@ void mixColumns(uint8_t* block) {
             uint8_t result3 = 0;
             uint8_t result4 = 0;
 
-            result1 = dumbMath(r1, a1);
-            result2 = dumbMath(r2, a2);
-            result3 = dumbMath(r3, a3);
-            result4 = dumbMath(r4, a4);
+            result1 = mixMath(r1, a1);
+            result2 = mixMath(r2, a2);
+            result3 = mixMath(r3, a3);
+            result4 = mixMath(r4, a4);
 
             outputBlock[(BLOCK_ROW_COL_SIZE * j) + i] = result1 ^ result2 ^ result3 ^ result4;
 

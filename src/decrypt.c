@@ -24,12 +24,8 @@ const uint8_t invSbox[256] =
 // inv sub bytes
 uint8_t invSubByte(uint8_t inputByte) {
 
-    // printf("Input: %X\n", inputByte);
-
     uint8_t MSB = (inputByte & 0xF0) >> 4; // 0xF-
     uint8_t LSB = (inputByte & 0xF);      // 0x-F
-
-    // printf("MSB: %X, LSB: %X\n", MSB, LSB);
 
     return invSbox[(16 * MSB) + LSB]; 
 
@@ -59,9 +55,9 @@ void invShiftRows(uint8_t* block) {
         {
 
             uint8_t temp = block[(BLOCK_ROW_COL_SIZE * i) + 3];
-            block[(BLOCK_ROW_COL_SIZE * i) + 1] = block[BLOCK_ROW_COL_SIZE * i];
-            block[(BLOCK_ROW_COL_SIZE * i) + 2] = block[(BLOCK_ROW_COL_SIZE * i) + 1];
             block[(BLOCK_ROW_COL_SIZE * i) + 3] = block[(BLOCK_ROW_COL_SIZE * i) + 2];
+            block[(BLOCK_ROW_COL_SIZE * i) + 2] = block[(BLOCK_ROW_COL_SIZE * i) + 1];
+            block[(BLOCK_ROW_COL_SIZE * i) + 1] = block[BLOCK_ROW_COL_SIZE * i];
             block[BLOCK_ROW_COL_SIZE * i] = temp;
 
         }
@@ -70,8 +66,120 @@ void invShiftRows(uint8_t* block) {
 
 }
 
+
+
+uint8_t invMixMath(uint8_t a, uint8_t b) {
+
+    int result = a;
+
+    if (b == 9)
+    {
+
+        for (int i = 0; i < 3; i++) // a x 2 three times
+        {
+
+            result <<= 1;
+
+            if (result > 0xFF)
+            {
+                result ^= 0x11B;
+            }
+
+        }
+
+        result ^= a; // a + a
+
+    }
+    else if (b == 0x0B)
+    {
+
+        // run a << 2 twice
+        // run a ^ a
+        // run a << 2 once
+        // run a ^ a
+
+        for (int i = 2; i > 0; i--)
+        {
+
+            for (int j = i; j > 0; j--)
+            {
+
+                result <<= 1;
+
+                if (result > 0xFF)
+                {
+                    result ^= 0x11B;
+                }
+
+            }
+
+            result ^= a;
+
+        }
+        
+    }
+    else if (b == 0x0D)
+    {
+
+        // run a << 2 once
+        // run a ^ a
+        // run a << 2 twice
+        // run a ^ a
+
+        for (int i = 0; i < 2; i++)
+        {
+
+            for (int j = 0; j < i+1; j++)
+            {
+
+                result <<= 1;
+
+                if (result > 0xFF)
+                {
+                    result ^= 0x11B;
+                }
+
+            }
+
+            result ^= a;
+
+        }
+
+    }
+    else if (b == 0x0E)
+    {
+
+        // alternate
+
+        for (int i = 0; i < 3; i++)
+        {
+
+            result <<= 1;
+
+            if (result > 0xFF)
+            {
+                result ^= 0x11B;
+            }
+
+            if (i != 2)
+            {
+                result ^= a;
+            }
+
+        }
+
+    }
+
+    return result;
+
+}
+
+
+
 // inv mix columns
 void invMixColumns(uint8_t* block) {
+
+    uint8_t outputBlock[16] = {0};
 
     uint8_t a[16] =
     {
@@ -92,7 +200,7 @@ void invMixColumns(uint8_t* block) {
         uint8_t r3 = block[(BLOCK_ROW_COL_SIZE * 2) + i];
         uint8_t r4 = block[(BLOCK_ROW_COL_SIZE * 3) + i];
 
-        for (int j = 0; i < BLOCK_ROW_COL_SIZE; i++)
+        for (int j = 0; j < BLOCK_ROW_COL_SIZE; j++)
         {
 
             uint8_t a1 = a[(BLOCK_ROW_COL_SIZE * j) + 0];
@@ -100,10 +208,25 @@ void invMixColumns(uint8_t* block) {
             uint8_t a3 = a[(BLOCK_ROW_COL_SIZE * j) + 2];
             uint8_t a4 = a[(BLOCK_ROW_COL_SIZE * j) + 3];
 
-            block[(BLOCK_ROW_COL_SIZE * j) + i] = (r1 * a1) ^ (r2 * a2) ^ (r3 * a3) ^ (r4 * a4);
+            uint8_t result1 = 0;
+            uint8_t result2 = 0;
+            uint8_t result3 = 0;
+            uint8_t result4 = 0;
+
+            result1 = invMixMath(r1, a1);
+            result2 = invMixMath(r2, a2);
+            result3 = invMixMath(r3, a3);
+            result4 = invMixMath(r4, a4);
+
+            outputBlock[(BLOCK_ROW_COL_SIZE * j) + i] = result1 ^ result2 ^ result3 ^ result4;
 
         }
 
+    }
+
+    for (int i = 0; i < BUFFER_SIZE; i++)
+    {
+        block[i] = outputBlock[i];
     }
 
 }

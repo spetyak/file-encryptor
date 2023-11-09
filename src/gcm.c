@@ -1,2 +1,2 @@
 
-// perform a galois counter method mode of encryption
+// perform the Galois Counter Mode (SIV) 
