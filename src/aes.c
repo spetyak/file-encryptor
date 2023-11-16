@@ -1,45 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../inc/aes.h"
 #include "../inc/key.h"
+#include "../inc/parse.h"
 #include "../inc/encrypt.h"
 #include "../inc/decrypt.h"
-
-// ********************************************************************************
-// CONSTANTS
-// ********************************************************************************
-
-#define BUFFER_SIZE 16                  // 16 bytes (since block length is 16 bytes)
-#define BLOCK_SIZE_BYTES 16             // block length is fixed at 128 bits or 16 bytes
-#define AES_NUM_BLOCKS 4                // 
-#define WORD_SIZE_BYTES 4               // a word is 4 bytes
-#define BLOCK_ROW_COL_SIZE 4            // the block represented by a matrix is 4 bytes x 4 bytes
-#define AES_128_KEY_LENGTH 128          // the number of bits in an AES-128 key
-#define AES_192_KEY_LENGTH 192          // the number of bits in an AES-192 key
-#define AES_256_KEY_LENGTH 256          // the number of bits in an AES-256 key
-#define AES_128_KEY_LENGTH_WORDS 4      // the number of words in a key for a key length of 128 is 4
-#define AES_192_KEY_LENGTH_WORDS 6      // the number of words in a key for a key length of 192 is 6
-#define AES_256_KEY_LENGTH_WORDS 8      // the number of words in a key for a key length of 256 is 8
-#define AES_128_NUM_ROUNDS 10           // the number of rounds for AES-128 is 10
-#define AES_192_NUM_ROUNDS 12           // the number of rounds for AES-192 is 12
-#define AES_256_NUM_ROUNDS 14           // the number of rounds for AES-256 is 14
-
-
-
-// AES-128:
-    //      keyWordLength   = 4 words       = 16 bytes
-    //      blockSize       = 4 words       = 16 bytes
-    //      numRounds       = 10 rounds
-
-    // AES-192:
-    //      keyWordLength   = 6 words       = 24 bytes
-    //      blockSize       = 4 words       = 16 bytes
-    //      numRounds       = 12 rounds
-
-    // AES-256:
-    //      keyWordLength   = 8 words       = 32 bytes
-    //      blockSize       = 4 words       = 16 bytes
-    //      numRounds       = 14 rounds
+#include "../inc/cbc.h"
 
 
 
@@ -49,20 +16,12 @@
 
 FILE *ptread = NULL;            // read file pointer
 FILE *ptwrite = NULL;           // write file pointer
+key_t* key = NULL;              // 
 uint8_t* Rcon = NULL;           // round constant array
 uint32_t* keySchedule = NULL;   // key schedule array
 uint32_t* keyWords = NULL;      // array of words that make up key
-uint128_t* key128 = NULL;       // 128 bit key struct pointer
-uint192_t* key192 = NULL;       // 192 bit key struct pointer
-uint256_t* key256 = NULL;       // 256 bit key struct pointer
 
 
-
-// ********************************************************************************
-// PROTOTYPES
-// ********************************************************************************
-
-void cleanup();
 
 // ********************************************************************************
 // FUNCTIONS
@@ -113,7 +72,7 @@ void createKeySchedule(uint32_t* key, int keyLengthInWords, int numRounds) {
     //          L array will be of size blockSize * (numRounds + 1)
     //                                  4 bytes * (16 * (numRounds + 1))
 
-    int scheduleLength = (AES_NUM_BLOCKS * (numRounds + 1)); 
+    int scheduleLength = (AES_BLOCK_SIZE_WORDS * (numRounds + 1)); 
 
     // allocate space for key schedule array
     keySchedule = malloc(sizeof(uint32_t) * scheduleLength);
@@ -169,7 +128,7 @@ void createKeySchedule(uint32_t* key, int keyLengthInWords, int numRounds) {
 
 void addRoundKey(uint8_t* block, int round) {
     
-    int l = round * AES_NUM_BLOCKS; // l = Round * blockSize
+    int l = round * AES_BLOCK_SIZE_WORDS; // l = Round * blockSize
 
     for (int i = 0; i < BLOCK_ROW_COL_SIZE; i++)
     {
@@ -183,51 +142,6 @@ void addRoundKey(uint8_t* block, int round) {
         block[(4 * 1) + i] ^= k2;
         block[(4 * 2) + i] ^= k3;
         block[(4 * 3) + i] ^= k4; 
-
-    }
-
-}
-
-
-
-int characterToHex(char c) {
-
-    switch (c) {
-
-        case '0':
-            return 0;
-        case '1':
-            return 1;
-        case '2':
-            return 2;
-        case '3':
-            return 3;
-        case '4':
-            return 4;
-        case '5':
-            return 5;
-        case '6':
-            return 6;
-        case '7':
-            return 7;
-        case '8':
-            return 8;
-        case '9':
-            return 9;
-        case 'A':
-            return 0xA;
-        case 'B':
-            return 0xB;
-        case 'C':
-            return 0xC;
-        case 'D':
-            return 0xD;
-        case 'E':
-            return 0xE;
-        case 'F':
-            return 0xF;
-        default:
-            return -1;
 
     }
 
@@ -308,22 +222,60 @@ void cleanup() {
     if (keySchedule) {
         free(keySchedule);
     }
+
+    if (key) {
+
+        if (key->keyWords) {
+            free(key->keyWords);
+        }
+
+        free(key);
+
+    }
+
+}
+
+
+
+void aesEncrypt(uint8_t* inBuf, int numRounds) {
+
+    addRoundKey(inBuf, 0); // add roundkey (add cipher key to plaintext)
+
+    for (int i = 1; i < numRounds; i++)
+    {
+
+        subBytes(inBuf);
+        shiftRows(inBuf);
+        mixColumns(inBuf);
+        addRoundKey(inBuf, i);
+
+    }
+
+    subBytes(inBuf); // subBytes
+    shiftRows(inBuf); // shiftRows
+    addRoundKey(inBuf, numRounds); // addRoundKey
+
+}
+
+void aesDecrypt(uint8_t* inBuf, int numRounds) {
+
+    // decryption starts at numRounds and works back down
+
+    addRoundKey(inBuf, numRounds); 
+
+    for (int i = numRounds-1; i > 0; i--)
+    {
+        invShiftRows(inBuf);
+        invSubBytes(inBuf);
+        addRoundKey(inBuf, i);
+        invMixColumns(inBuf);
+        
+    }
+
+    invShiftRows(inBuf);
+    invSubBytes(inBuf);
+    addRoundKey(inBuf, 0);
     
-    // if the 128 bit key struct was allocated (not NULL), free it
-    if (key128) {
-        free(key128);
-    }
-
-    // if the 192 bit key struct was allocated (not NULL), free it
-    if (key192) {
-        free(key192);
-    }
-
-    // if the 256 bit key struct was allocated (not NULL), free it
-    if (key256) {
-        free(key256);
-    }
-
 }
 
 
@@ -333,6 +285,8 @@ void cleanup() {
 int main(int argc, char** argv) {
 
     uint8_t inBuf[BUFFER_SIZE] = {0}; // file input
+    uint8_t prevCipherOut[BUFFER_SIZE] = {0};
+    uint8_t prevCipherIn[BUFFER_SIZE] = {0};
 
     char* inputFilename = NULL; // input filename pointer
     char* outputFilename = NULL; // output filename pointer
@@ -344,143 +298,21 @@ int main(int argc, char** argv) {
     int keyIndex = 0;           // 
     uint32_t keyPiece = 0;      // 
     int mode = 0;               // 0 for encryption, 1 for decryption
+    int firstRun = 1;
+    uint8_t* iv = NULL;
 
+    int encryptionMode = parseInput(argc, argv, &mode, &key, &iv, &inputFilename, &outputFilename);
 
-
-    // will eventually want to change this to check for 5 args (current args plus -e or -d)
-    if (argc == 6) // the user provided 4 arguments (./<filename> -e -K <key> <inputfile> <outputfile>)
+    if (encryptionMode == -1) // an error occurred when parsing userInput (either by fault of user or system)
     {
-        
-        if (strncmp(argv[2], "-K", 2) == 0) // if we are provided a flag indicating a key...
-        {
-
-            keyInputLength = strnlen(argv[3], 64); // determine key length of input
-
-
-
-            if (keyInputLength * 4 == 128)
-            {
-
-                key128 = malloc(sizeof(uint128_t));
-                if (!key128)
-                {
-                    printf("Unable to allocate space for 128 bit key!\n");
-                    cleanup();
-                    exit(-1);
-                }
-                keyWords = key128->w;
-                numRounds = AES_128_NUM_ROUNDS;
-                keyCanonLength = AES_128_KEY_LENGTH_WORDS;
-                RconArraySize = 10;
-                
-            }
-            else if (keyInputLength * 4 == 192)
-            {
-
-                key192 = malloc(sizeof(uint192_t));
-                if (!key192)
-                {
-                    printf("Unable to allocate space for 192 bit key!\n");
-                    cleanup();
-                    exit(-1);
-                }
-                keyWords = key192->w;
-                numRounds = AES_192_NUM_ROUNDS;
-                keyCanonLength = AES_192_KEY_LENGTH_WORDS;
-                RconArraySize = 8;
-
-            }
-            else if (keyInputLength * 4 == 256)
-            {
-
-                key256 = malloc(sizeof(uint256_t));
-                if (!key256)
-                {
-                    printf("Unable to allocate space for 256 bit key!\n");
-                    cleanup();
-                    exit(-1);
-                }
-                keyWords = key256->w;
-                numRounds = AES_256_NUM_ROUNDS;
-                keyCanonLength = AES_256_KEY_LENGTH_WORDS;
-                RconArraySize = 7;
-
-            }
-            else
-            {
-                printf("Invalid key length! Keys must be of size 128, 192, or 256 bits!");
-                cleanup();
-                exit(-1);
-            }
-
-            for (int i = 0; i < keyInputLength; i++) // check that key contains legal data
-            {
-
-                int keyPieceBit = characterToHex(argv[3][i]);
-
-                if (keyPieceBit == -1)
-                {
-                    printf("Illegal character! Key can only use 0123456789ABCDEF!\n");
-                    cleanup();
-                    exit(-1);
-                }
-                else
-                {
-
-                    if (addToKeyWords == 0) // build and add to keyWords
-                    {
-
-                        keyPiece = keyPiece | (keyPieceBit << ((addToKeyWords) * 4)); // add final piece to key word
-                        keyWords[keyIndex] = keyPiece; // add word to key array
-                        addToKeyWords = 7;
-                        keyIndex++; // begin work on next key word 
-                        keyPiece = 0; // reset key piece
-                        continue;
-
-                    }
-                    else // build key word
-                    {
-                        keyPiece = keyPiece | (keyPieceBit << ((addToKeyWords) * 4)); // add piece to key word
-                    }
-
-                    addToKeyWords--;
-
-                }
-
-            }
-
-        }
-        else // notify user of correct command signature
-        {
-            printf("error in command signature\n");
-            cleanup();
-            exit(-1);
-        }
-
-        if (strncmp(argv[1], "-e", 2) == 0) // user wants to encrypt
-        {
-            mode = 0;
-        }
-        else if (strncmp(argv[1], "-d", 2) == 0) // user wants to decrypt
-        {
-            mode = 1;
-        }
-        else
-        {
-            printf("Invalid option\n");
-            cleanup();
-            exit(-1);
-        }
-
-        inputFilename = argv[4];
-        outputFilename = argv[5];
-
-    }
-    else
-    {
-        printf("Invalid number of arguments!\n");
+        printf("Exited for some reason\n");
+        cleanup();
         exit(-1);
     }
+
+
+
+
 
     if ((ptread = fopen(inputFilename, "rb")) == NULL)
     {
@@ -498,104 +330,80 @@ int main(int argc, char** argv) {
     fseek(ptwrite, 0, SEEK_SET); // move write pointer to beginning of file
 
 
-
     
-    createRoundConstantArray(RconArraySize); // create round constants array
-    createKeySchedule(keyWords, keyCanonLength, numRounds); // expand given key
+    createRoundConstantArray(key->RconArraySize); // create round constants array
+    createKeySchedule(key->keyWords, key->keyCanonLength, key->numRounds); // expand given key
 
 
-    
 
-    if (0 != fread(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptread)) // read in 16 bytes
-    {
-        swapRowsAndColumns(inBuf); // get input in proper column-row order so operations behave as expected
-    }
-    else
-    {
-        printf("Nothing was read!\n");
-        cleanup();
-        exit(-1);
-    }
-    
-
-
-    printf("buf contents before: 0x");
-    for (int i = 0; i < BUFFER_SIZE; i++)
-    {
-        printf("%2X", inBuf[i]);
-    }
-    printf("\n");
-    
-    
-
-    if (mode == 0) // encrypt
+    while (fread(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptread) != 0) // READ FROM INPUT FILE
     {
 
-        addRoundKey(inBuf, 0); // add roundkey (add cipher key to plaintext)
+        swapRowsAndColumns(inBuf);
+        swapRowsAndColumns(iv);
 
-        for (int i = 1; i < numRounds; i++)
+        if (encryptionMode == 0) // AES-ECB
         {
 
-            subBytes(inBuf);
-            shiftRows(inBuf);
-            mixColumns(inBuf);
-            addRoundKey(inBuf, i);
+            // just simply use AES encryption/decryption functions
+            // no need to hold on to generated output
+            if (mode == 0) {
+                printf("ENCRYPTING IN ECB MODE!\n");
+                aesEncrypt(inBuf, key->numRounds);
+            }
+            else {
+                printf("DECRYPTING IN ECB MODE!\n");
+                aesDecrypt(inBuf, key->numRounds);
+            }
 
         }
-
-        subBytes(inBuf); // subBytes
-        shiftRows(inBuf); // shiftRows
-        addRoundKey(inBuf, numRounds); // addRoundKey
-
-    }
-    else // decrypt
-    {
-
-        // decryption starts at numRounds and works back down
-
-        addRoundKey(inBuf, numRounds); 
-
-        for (int i = numRounds-1; i > 0; i--)
+        else if (encryptionMode == 1) // AES-CBC
         {
-            invShiftRows(inBuf);
-            invSubBytes(inBuf);
-            addRoundKey(inBuf, i);
-            invMixColumns(inBuf);
+
+            if (mode == 0) {
+                printf("ENCRYPTING IN CBC MODE!\n");
+
+                cbcEncrypt(inBuf, prevCipherOut, prevCipherIn, key->numRounds, iv, &firstRun);
+            }
+            else {
+                printf("DECRYPTING IN CBC MODE!\n");
+                cbcDecrypt(inBuf, prevCipherOut, prevCipherIn, key->numRounds, iv, &firstRun);
+            }
+
+            memcpy(prevCipherIn, prevCipherOut, BUFFER_SIZE);
+
+        }
+        else if (encryptionMode == 2)// AES-GCM
+        {
+
+            if (mode == 0) {
+                printf("ENCRYPTING IN GCM MODE!\n");
+            }
+            else {
+                printf("DECRYPTING IN GCM MODE!\n");
+            }
             
         }
 
-        invShiftRows(inBuf);
-        invSubBytes(inBuf);
-        addRoundKey(inBuf, 0);
+        swapRowsAndColumns(inBuf);
+        swapRowsAndColumns(iv);
+
+        // hold on to generated output (for CBC and GCM)
+
+        // WRITE TO OUTPUT FILE
+        fwrite(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptwrite);
+
+        memset(inBuf, 0, BUFFER_SIZE);
 
     }
 
 
-
-    swapRowsAndColumns(inBuf); // swap back state array so that output is readable (readable in the case of decrypted messages that is)
-
-    printf("Writing %lu thing(s) of size %d to output\n", sizeof(uint8_t), BUFFER_SIZE);
-
-    // write encrypted buffer to output file (append that is)
-    //      L actually shouldn't we write over the block we just processed? (if output file is same as input)
-    fwrite(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptwrite);
-        
-    
-
-    printf("buf contents after: 0x");
-    for (int i = 0; i < BUFFER_SIZE; i++)
-    {
-        printf("%2X", inBuf[i]);
-    }
-    printf("\n");
-
-    
-    
-    memset(inBuf, 0, BUFFER_SIZE); // reset buffer to prevent repeats when EOF reached
 
 
 
     cleanup();
+
+    // system("leaks aes"); // used to check for memory leaks
 
     return 0;
 

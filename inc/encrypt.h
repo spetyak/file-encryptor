@@ -1,9 +1,7 @@
-#include <stdint.h>
 #ifndef ENCRYPT_H_
 #define ENCRYPT_H_
 
-#define BUFFER_SIZE 16                  // 16 bytes (since block length is 16 bytes)
-#define BLOCK_ROW_COL_SIZE 4            // the block represented by a matrix is 4 bytes x 4 bytes
+#include "aes.h"
 
 extern const uint8_t sbox[256];
 

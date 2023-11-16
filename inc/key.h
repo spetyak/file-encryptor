@@ -1,4 +1,5 @@
-#include <stdlib.h>
+#ifndef KEY_H_
+#define KEY_H_
 
 /*
  * AES operations on the key is pretty much strictly reading, 
@@ -37,3 +38,14 @@ typedef struct uint256 {
     uint32_t w[8]; // 256 bits contains 8 words (8 x 4 bytes)
 
 } uint256_t;
+
+typedef struct key {
+
+    uint32_t* keyWords;
+    int numRounds;
+    int keyCanonLength;
+    int RconArraySize;
+
+} key_t;
+
+#endif // KEY_H_
