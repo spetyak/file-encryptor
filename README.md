@@ -10,10 +10,6 @@ Both the ECB and CBC implementations currently run using a single thread and can
 and decrypt ~830 KB/s. Compared to other more sophisticated implementations this is rather slow. Some
 clever tricks and parallelization could help improve this.
 
-## Installation
-
-Here's how to install the file encryptor
-
 ## Usage 
 
 To run, use the following syntax:
