@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <time.h>
+
 #include "../inc/aes.h"
 #include "../inc/key.h"
 #include "../inc/parse.h"
@@ -17,6 +20,7 @@
 FILE *ptread = NULL;            // read file pointer
 FILE *ptwrite = NULL;           // write file pointer
 key_t* key = NULL;              // 
+uint8_t* iv = NULL;             // 
 uint8_t* Rcon = NULL;           // round constant array
 uint32_t* keySchedule = NULL;   // key schedule array
 uint32_t* keyWords = NULL;      // array of words that make up key
@@ -290,22 +294,15 @@ int main(int argc, char** argv) {
 
     char* inputFilename = NULL; // input filename pointer
     char* outputFilename = NULL; // output filename pointer
-    int keyCanonLength = 0;     // actual length of key for encryption
-    int keyInputLength = 0;     // length of user provided key 
-    int RconArraySize = 0;      // size of round constant array, dependent on key size
-    int numRounds = 0;          // the number of rounds for a given key size
-    int addToKeyWords = 7;      // 
-    int keyIndex = 0;           // 
-    uint32_t keyPiece = 0;      // 
     int mode = 0;               // 0 for encryption, 1 for decryption
-    int firstRun = 1;
-    uint8_t* iv = NULL;
+    int firstRun = 1;           // used for CBC encryption to determine what to XOR the input with
+    
 
     int encryptionMode = parseInput(argc, argv, &mode, &key, &iv, &inputFilename, &outputFilename);
 
     if (encryptionMode == -1) // an error occurred when parsing userInput (either by fault of user or system)
     {
-        printf("Exited for some reason\n");
+        // error message cause is displayed by parse.c 
         cleanup();
         exit(-1);
     }
@@ -327,6 +324,10 @@ int main(int argc, char** argv) {
         cleanup();
         exit(-1);
     } 
+    fseek(ptread, 0, SEEK_END);
+    unsigned long fileSize = ftell(ptread);
+    printf("File size: %lu\n", fileSize);
+    fseek(ptread, 0, SEEK_SET);
     fseek(ptwrite, 0, SEEK_SET); // move write pointer to beginning of file
 
 
@@ -334,13 +335,30 @@ int main(int argc, char** argv) {
     createRoundConstantArray(key->RconArraySize); // create round constants array
     createKeySchedule(key->keyWords, key->keyCanonLength, key->numRounds); // expand given key
 
+    if (encryptionMode == 0) {
+        printf("USING ECB MODE!\n");
+    }
+    else if (encryptionMode == 1) {
+        printf("USING CBC MODE!\n");
+    }
+    else if (encryptionMode == 2) {
+        printf("USING GCM MODE!\n");
+    }
 
+
+
+    // printf("Progress:\n");
+
+
+
+    float startTime = (float) clock() / CLOCKS_PER_SEC;
 
     while (fread(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptread) != 0) // READ FROM INPUT FILE
     {
 
+        // printf("\r%lu / %lu", ftell(ptread), fileSize);
+
         swapRowsAndColumns(inBuf);
-        swapRowsAndColumns(iv);
 
         if (encryptionMode == 0) // AES-ECB
         {
@@ -348,57 +366,61 @@ int main(int argc, char** argv) {
             // just simply use AES encryption/decryption functions
             // no need to hold on to generated output
             if (mode == 0) {
-                printf("ENCRYPTING IN ECB MODE!\n");
                 aesEncrypt(inBuf, key->numRounds);
             }
             else {
-                printf("DECRYPTING IN ECB MODE!\n");
                 aesDecrypt(inBuf, key->numRounds);
             }
 
         }
-        else if (encryptionMode == 1) // AES-CBC
+        else 
         {
 
-            if (mode == 0) {
-                printf("ENCRYPTING IN CBC MODE!\n");
+            swapRowsAndColumns(iv);
 
-                cbcEncrypt(inBuf, prevCipherOut, prevCipherIn, key->numRounds, iv, &firstRun);
+            if (encryptionMode == 1) // AES-CBC
+            {
+
+                if (mode == 0) {
+                    cbcEncrypt(inBuf, prevCipherOut, prevCipherIn, key->numRounds, iv, &firstRun);
+                }
+                else {
+                    cbcDecrypt(inBuf, prevCipherOut, prevCipherIn, key->numRounds, iv, &firstRun);
+                }
+
+                memcpy(prevCipherIn, prevCipherOut, BUFFER_SIZE);
+
             }
-            else {
-                printf("DECRYPTING IN CBC MODE!\n");
-                cbcDecrypt(inBuf, prevCipherOut, prevCipherIn, key->numRounds, iv, &firstRun);
+            else if (encryptionMode == 2)// AES-GCM
+            {
+
+                if (mode == 0) {
+
+                }
+                else {
+
+                }
+                
             }
 
-            memcpy(prevCipherIn, prevCipherOut, BUFFER_SIZE);
+            swapRowsAndColumns(iv);
 
-        }
-        else if (encryptionMode == 2)// AES-GCM
-        {
-
-            if (mode == 0) {
-                printf("ENCRYPTING IN GCM MODE!\n");
-            }
-            else {
-                printf("DECRYPTING IN GCM MODE!\n");
-            }
-            
         }
 
         swapRowsAndColumns(inBuf);
-        swapRowsAndColumns(iv);
 
-        // hold on to generated output (for CBC and GCM)
 
-        // WRITE TO OUTPUT FILE
-        fwrite(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptwrite);
+        
+        fwrite(inBuf, sizeof(uint8_t), BUFFER_SIZE, ptwrite);// WRITE TO OUTPUT FILE
 
         memset(inBuf, 0, BUFFER_SIZE);
 
     }
 
 
+    float endTime = (float) clock()/CLOCKS_PER_SEC;
 
+    printf("\nTime to en/de-crypt %lu bytes : %fs\n", fileSize, endTime-startTime);
 
 
     cleanup();
