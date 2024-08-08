@@ -19,8 +19,8 @@
 
 FILE *ptread = NULL;            // read file pointer
 FILE *ptwrite = NULL;           // write file pointer
-key_t* key = NULL;              // 
-uint8_t* iv = NULL;             // 
+myKey_t* key = NULL;            // key pointer
+uint8_t* iv = NULL;             // iv pointer
 uint8_t* Rcon = NULL;           // round constant array
 uint32_t* keySchedule = NULL;   // key schedule array
 uint32_t* keyWords = NULL;      // array of words that make up key
@@ -104,8 +104,6 @@ void createKeySchedule(uint32_t* key, int keyLengthInWords, int numRounds) {
             // (x is denoted as {02}) in the field GF(2^8), as discussed in Sec. 4.2 (note that i starts at 1, not 0).
 
             uint32_t roundConstant = Rcon[(i / keyLengthInWords) - 1] << (3 * 8);
-
-            
 
             if (keyLengthInWords == AES_256_KEY_LENGTH_WORDS && ((i - 4) % keyLengthInWords == 0))
             {
@@ -255,9 +253,9 @@ void aesEncrypt(uint8_t* inBuf, int numRounds) {
 
     }
 
-    subBytes(inBuf); // subBytes
-    shiftRows(inBuf); // shiftRows
-    addRoundKey(inBuf, numRounds); // addRoundKey
+    subBytes(inBuf);
+    shiftRows(inBuf);
+    addRoundKey(inBuf, numRounds);
 
 }
 
@@ -292,13 +290,14 @@ int main(int argc, char** argv) {
     uint8_t prevCipherOut[BUFFER_SIZE] = {0};
     uint8_t prevCipherIn[BUFFER_SIZE] = {0};
 
-    char* inputFilename = NULL; // input filename pointer
-    char* outputFilename = NULL; // output filename pointer
-    int mode = 0;               // 0 for encryption, 1 for decryption
-    int firstRun = 1;           // used for CBC encryption to determine what to XOR the input with
+    char* inputFilename = NULL;     // input filename pointer
+    char* outputFilename = NULL;    // output filename pointer
+    unsigned long fileSize = 0;
+    int mode = 0;                   // 0 for encryption, 1 for decryption
+    int firstRun = 1;               // used for CBC encryption to determine what to XOR the input with
     
 
-    int encryptionMode = parseInput(argc, argv, &mode, &key, &iv, &inputFilename, &outputFilename);
+    int encryptionMode = parseInput(&mode, &key, &iv, &inputFilename, &outputFilename); // parseInput(&mode, &key, &iv, &inputFilename, &outputFilename);
 
     if (encryptionMode == -1) // an error occurred when parsing userInput (either by fault of user or system)
     {
@@ -306,8 +305,6 @@ int main(int argc, char** argv) {
         cleanup();
         exit(-1);
     }
-
-
 
 
 
@@ -324,9 +321,11 @@ int main(int argc, char** argv) {
         cleanup();
         exit(-1);
     } 
+
     fseek(ptread, 0, SEEK_END);
-    unsigned long fileSize = ftell(ptread);
+    fileSize = ftell(ptread);
     printf("File size: %lu\n", fileSize);
+    
     fseek(ptread, 0, SEEK_SET);
     fseek(ptwrite, 0, SEEK_SET); // move write pointer to beginning of file
 

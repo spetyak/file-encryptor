@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define COMP_MAX_LEN 10
+#define COMP_MAX_LEN 128
 
 
 
@@ -33,16 +33,22 @@ int characterToHex(char c) {
         case '9':
             return 9;
         case 'A':
+        case 'a':
             return 0xA;
         case 'B':
+        case 'b':
             return 0xB;
         case 'C':
+        case 'c':
             return 0xC;
         case 'D':
+        case 'd':
             return 0xD;
         case 'E':
+        case 'e':
             return 0xE;
         case 'F':
+        case 'f':
             return 0xF;
         default:
             return -1;
@@ -53,11 +59,6 @@ int characterToHex(char c) {
 
 
 
-// go through input
-// look for markers (-e, -K, -iv)
-// check input and output files
-// check argument legality (key length / iv length)
-
 /*
  * args             - the command line input
  * inputFilename    - the input filename
@@ -66,231 +67,212 @@ int characterToHex(char c) {
  * keySchedule      - the key schedule that will be used for encryption
  * iv               - the iv that will be used for encryption
  */
-int parseInput(int argc, char** argv, int* mode, key_t** key, uint8_t** iv, char** inputFilename, char** outputFilename) {
+int parseInput(int* mode, myKey_t** key, uint8_t** iv, char** inputFilename, char** outputFilename) {
 
-    int encryptionMode = 0;
-    int ivInputLength = 0;
-    int keyInputLength = 0;
-    int addToKeyWords = 7;      
-    int keyIndex = 0;      
-    int keyPieceBit = 0;     
-    uint32_t keyPiece = 0;  
-    int ivPieceBit = 0;    
-    uint8_t ivPiece = 0;
+    char* userInput = NULL;
+    size_t size = 0;
 
-    
-    
+    int encryptionMode = 0;     // 0 for ECB encryption, 1 for CBC encryption, 2 for GCM encryption
+    int ivInputLength = 0;      // the length of the user input for the iv
+    int keyInputLength = 0;     // the length of the user input for the key
+    int keyWordIndex = 0;      // counter used to help build key words
+    int keyIndex = 0;           // index of current keyword being made
+    int keyWordNibble = 0;     // current 4 bits being added to keyword 
+    uint32_t keyWord = 0;      // 
+    int ivPieceNibble = 0;      // current 4 bits being added to iv
+    uint8_t ivPiece = 0;        // 
 
-    // ./<filename> -e -aes-cbc -K <key> -iv <iv> -in <inputfile> -out <outputfile>
 
-    if (argc < 7)
+
+    // CHOOSE ENCRYPTION OR DECRYPTION
+    printf("Would you like to ENCRYPT (0) or DECRYPT (1)?: ");
+    getline(&userInput, &size, stdin);
+    sscanf(userInput, "%d", &(*mode));
+
+
+
+    // GET INPUT/OUTPUT FILEPATH
+    *inputFilename = malloc(150 * sizeof(char));
+    if (!(*inputFilename))
     {
-        printf("Not enough arguments!\n");
+        printf("Failed to allocate input filename!\n");
+        return -1;
+    }
+    *outputFilename = malloc(150 * sizeof(char));
+    if (!(*outputFilename))
+    {
+        printf("Failed to allocate output filename!\n");
         return -1;
     }
 
-    if (strncmp(argv[1], "-e", COMP_MAX_LEN) == 0)
+    printf("Input file path: ");
+    getline(inputFilename, &size, stdin);
+    sscanf(*inputFilename, "%[^\n]", *inputFilename);
+
+    printf("Output file path: ");
+    getline(outputFilename, &size, stdin);
+    sscanf(*outputFilename, "%[^\n]", *outputFilename);
+
+
+
+    // GET MODE (0 for ECB, 1 for CBC, 2 for GCM)
+    printf("Please choose an encryption mode.\n");
+    printf("ECB(0), CBC(1), or GCM(2): ");
+    getline(&userInput, &size, stdin);
+    sscanf(userInput, "%d", &encryptionMode);
+
+
+
+    // GET KEY
+    printf("Key: ");
+    getline(&userInput, &size, stdin);
+    sscanf(userInput, "%[^\n]", userInput);
+    
+    (*key) = malloc(sizeof(myKey_t));
+    if (!(*key))
     {
-        *mode = 0;
+        printf("Unable to allocate key structure!\n");
+        return -1;
     }
-    else if (strncmp(argv[1], "-d", COMP_MAX_LEN) == 0)
+
+    keyInputLength = strnlen(userInput, COMP_MAX_LEN); // determine key length of input
+
+    if (keyInputLength * 4 == 128)
     {
-       *mode = 1;
+
+        printf("Using AES-128\n");
+
+        (*key)->keyWords = malloc(sizeof(uint128_t));
+        if (!(*key)->keyWords)
+        {
+            printf("Unable to allocate space for 128 bit key!\n");
+            return -1;
+        }
+        (*key)->numRounds = AES_128_NUM_ROUNDS;
+        (*key)->keyCanonLength = AES_128_KEY_LENGTH_WORDS;
+        (*key)->RconArraySize = 10;
+        
+    }
+    else if (keyInputLength * 4 == 192)
+    {
+
+        printf("Using AES-192\n");
+
+        (*key)->keyWords = malloc(sizeof(uint192_t));
+        if (!(*key)->keyWords)
+        {
+            printf("Unable to allocate space for 192 bit key!\n");
+            return -1;
+        }
+        (*key)->numRounds = AES_192_NUM_ROUNDS;
+        (*key)->keyCanonLength = AES_192_KEY_LENGTH_WORDS;
+        (*key)->RconArraySize = 8;
+
+    }
+    else if (keyInputLength * 4 == 256)
+    {
+
+        printf("Using AES-256\n");
+
+        (*key)->keyWords = malloc(sizeof(uint256_t));
+        if (!(*key)->keyWords)
+        {
+            printf("Unable to allocate space for 256 bit key!\n");
+            return -1;
+        }
+        (*key)->numRounds = AES_256_NUM_ROUNDS;
+        (*key)->keyCanonLength = AES_256_KEY_LENGTH_WORDS;
+        (*key)->RconArraySize = 7;
+
     }
     else
     {
-        printf("Illegal mode! \"-e\" or \"-d\" modes only!\n");
+        printf("Invalid key length! Keys must be of size 128, 192, or 256 bits!\n");
         return -1;
     }
 
-    if (strncmp(argv[3], "-K", COMP_MAX_LEN) == 0)
+    for (int i = 0; i < keyInputLength; i++) // check that key contains legal data
     {
 
-        (*key) = malloc(sizeof(key_t));
-        if (!(*key))
+        keyWordNibble = characterToHex(userInput[i]);
+
+        if (keyWordNibble == -1)
         {
-            printf("Unable to allocate key structure!\n");
+            printf("Illegal character! Key can only use 0123456789ABCDEF!\n");
             return -1;
         }
-
-        keyInputLength = strnlen(argv[4], 64); // determine key length of input
-
-        if (keyInputLength * 4 == 128)
-        {
-
-            (*key)->keyWords = malloc(sizeof(uint128_t));
-            if (!(*key)->keyWords)
-            {
-                printf("Unable to allocate space for 128 bit key!\n");
-                return -1;
-            }
-            (*key)->numRounds = AES_128_NUM_ROUNDS;
-            (*key)->keyCanonLength = AES_128_KEY_LENGTH_WORDS;
-            (*key)->RconArraySize = 10;
-            
-        }
-        else if (keyInputLength * 4 == 192)
-        {
-
-            (*key)->keyWords = malloc(sizeof(uint192_t));
-            if (!(*key)->keyWords)
-            {
-                printf("Unable to allocate space for 192 bit key!\n");
-                return -1;
-            }
-            (*key)->numRounds = AES_192_NUM_ROUNDS;
-            (*key)->keyCanonLength = AES_192_KEY_LENGTH_WORDS;
-            (*key)->RconArraySize = 8;
-
-        }
-        else if (keyInputLength * 4 == 256)
-        {
-
-            (*key)->keyWords = malloc(sizeof(uint256_t));
-            if (!(*key)->keyWords)
-            {
-                printf("Unable to allocate space for 256 bit key!\n");
-                return -1;
-            }
-            (*key)->numRounds = AES_256_NUM_ROUNDS;
-            (*key)->keyCanonLength = AES_256_KEY_LENGTH_WORDS;
-            (*key)->RconArraySize = 7;
-
-        }
-        else
-        {
-            printf("Invalid key length! Keys must be of size 128, 192, or 256 bits!");
-            return -1;
-        }
-
-        for (int i = 0; i < keyInputLength; i++) // check that key contains legal data
-        {
-
-            keyPieceBit = characterToHex(argv[4][i]);
-
-            if (keyPieceBit == -1)
-            {
-                printf("Illegal character! Key can only use 0123456789ABCDEF!\n");
-                return -1;
-            }
-            
-            if (addToKeyWords == 0) // build and add to keyWords
-            {
-
-                keyPiece = keyPiece | (keyPieceBit << ((addToKeyWords) * 4)); // add final piece to key word
-                (*key)->keyWords[keyIndex] = keyPiece; // add word to key array
-                addToKeyWords = 7;
-                keyIndex++; // begin work on next key word 
-                keyPiece = 0; // reset key piece
-                continue;
-
-            }
-            else // build key word
-            {
-                keyPiece = keyPiece | (keyPieceBit << ((addToKeyWords) * 4)); // add piece to key word
-            }
-
-            addToKeyWords--;
-
-        }
-
-    }
-    else 
-    {
-        printf("-K needed\n");
-        return -1;
-    }
-
-
-
-    if (strncmp(argv[2], "-aes-ecb", COMP_MAX_LEN) == 0)
-    {
-
-        if (strncmp(argv[5], "-in", COMP_MAX_LEN) == 0 && strncmp(argv[7], "-out", COMP_MAX_LEN) == 0)
-        {
-            *inputFilename = argv[6];
-            *outputFilename = argv[8];
-
-            return encryptionMode;
-        }
-
-    }
-    else if (strncmp(argv[5], "-iv", COMP_MAX_LEN) == 0)
-    {
-
-        if (strncmp(argv[2], "-aes-cbc", COMP_MAX_LEN) == 0)
-        {
-            encryptionMode = 1;
-        }
-        else if (strncmp(argv[2], "-aes-gcm", COMP_MAX_LEN) == 0)
-        {
-            encryptionMode = 2;
-        }
-        else
-        {
-            return -1;
-        }
-
         
-
-        // get iv 
-        *iv = malloc(BUFFER_SIZE * sizeof(uint8_t));
-        if (!(*iv))
+        if (keyWordIndex == 7) // build and add to keyWords
         {
-            printf("Unable to allocate IV!\n");
+
+            keyWord = keyWord | (keyWordNibble << ((keyWordIndex) * 4)); // add final piece to key word
+            (*key)->keyWords[keyIndex] = keyWord; // add word to key array
+            keyWordIndex = 0;
+            keyIndex++; // begin work on next key word 
+            keyWord = 0; // reset key piece
+            continue;
+
+        }
+        else // build key word
+        {
+            keyWord = keyWord | (keyWordNibble << ((keyWordIndex) * 4)); // add piece to key word
+        }
+
+        keyWordIndex++;
+
+    }
+
+
+
+    // GET IV
+    printf("IV: ");
+    getline(&userInput, &size, stdin);
+    sscanf(userInput, "%[^\n]", userInput);
+
+    ivInputLength = strnlen(userInput, COMP_MAX_LEN);
+
+    if (ivInputLength != BUFFER_SIZE * 2) // confirm IV given contains 16 bytes (should be 32 characters)
+    {
+        printf("Incorrect iv size! Must be 16 bytes!\n");
+        return -1;
+    }
+
+    *iv = malloc(BUFFER_SIZE * sizeof(uint8_t));
+    if (!(*iv))
+    {
+        printf("Unable to allocate IV!\n");
+        return -1;
+    }
+
+    for (int i = 0; i < ivInputLength; i++)
+    {
+
+        ivPieceNibble = characterToHex(userInput[i]);
+
+        if (ivPieceNibble == -1)
+        {
+            printf("Illegal character! Key can only use 0123456789ABCDEF!\n");
             return -1;
         }
 
-        ivInputLength = strnlen(argv[6], 64);
-
-        if (ivInputLength != BUFFER_SIZE * 2)
-        {
-            printf("Incorrect iv size! Must be 16 bytes!\n");
-            return -1;
-        }
-
-        for (int i = 0; i < ivInputLength; i++)
+        if ((i + 1) % 2 == 0)
         {
 
-            ivPieceBit = characterToHex(argv[6][i]);
+            ivPiece = (ivPiece << 4) | ivPieceNibble;
 
-            if (ivPieceBit == -1)
-            {
-                printf("Illegal character! Key can only use 0123456789ABCDEF!\n");
-                return -1;
-            }
+            (*iv)[i / 2] = ivPiece;
+            ivPiece = 0;
 
-            if ((i + 1) % 2 == 0)
-            {
-
-                ivPiece |= ivPieceBit << 4;
-
-               
-                (*iv)[i / 2] = ivPiece;
-                ivPiece = 0;
-
-            }
-            else
-            {
-                ivPiece = ivPieceBit;
-            }
-            
         }
-
-
-
-        // get input filename
-        // get output filename
-        if (strncmp(argv[7], "-in", COMP_MAX_LEN) == 0 && strncmp(argv[9], "-out", COMP_MAX_LEN) == 0)
+        else
         {
-            *inputFilename = argv[8];
-            *outputFilename = argv[10];
-
-            return encryptionMode;
+            ivPiece = ivPieceNibble;
         }
+        
+    }
 
-    }   
 
-    return -1;
+
+    return encryptionMode;
 
 }

@@ -39,13 +39,13 @@ typedef struct uint256 {
 
 } uint256_t;
 
-typedef struct key {
+typedef struct myKey {
 
     uint32_t* keyWords;
     int numRounds;
     int keyCanonLength;
     int RconArraySize;
 
-} key_t;
+} myKey_t;
 
 #endif // KEY_H_
