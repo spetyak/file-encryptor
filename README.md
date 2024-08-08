@@ -13,19 +13,13 @@ clever tricks and parallelization could help improve this.
 
 ## Usage 
 
-To run, use the following syntax:
+To run, simply run the executable:
 
-For ECB:
 ```bash
-./aes -e -aes-ecb -K 00112233445566778899AABBCCDDEEFF -in infile.txt -out outfile.txt
-./aes -d -aes-ecb -K 00112233445566778899AABBCCDDEEFF -in infile.txt -out outfile.txt
+./aes 
 ```
 
-For CBC: 
-```bash
-./aes -e -aes-cbc -K 00112233445566778899AABBCCDDEEFF -iv 00112233445566778899AABBCCDDEEFF -in infilte.txt -out outfile.txt
-./aes -d -aes-cbc -K 00112233445566778899AABBCCDDEEFF -iv 00112233445566778899AABBCCDDEEFF -in infilte.txt -out outfile.txt
-```
+The shell will then prompt the user to choose whether they'd like to encrypt/decrypt, input/output sources, and a key and initialization vector.
 
 ## Contributing
 
