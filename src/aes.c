@@ -17,8 +17,8 @@
 // GLOBALS
 // ********************************************************************************
 
-FILE *ptread = NULL;            // read file pointer
-FILE *ptwrite = NULL;           // write file pointer
+FILE* ptread = NULL;            // read file pointer
+FILE* ptwrite = NULL;           // write file pointer
 myKey_t* key = NULL;            // key pointer
 uint8_t* iv = NULL;             // iv pointer
 uint8_t* Rcon = NULL;           // round constant array
@@ -325,14 +325,14 @@ int main(int argc, char** argv) {
     fseek(ptread, 0, SEEK_END);
     fileSize = ftell(ptread);
     printf("File size: %lu\n", fileSize);
-    
+
     fseek(ptread, 0, SEEK_SET);
     fseek(ptwrite, 0, SEEK_SET); // move write pointer to beginning of file
 
 
     
     createRoundConstantArray(key->RconArraySize); // create round constants array
-    createKeySchedule(key->keyWords, key->keyCanonLength, key->numRounds); // expand given key
+    createKeySchedule(key->keyWords, key->keyLengthInWords, key->numRounds); // expand given key
 
     if (encryptionMode == 0) {
         printf("USING ECB MODE!\n");

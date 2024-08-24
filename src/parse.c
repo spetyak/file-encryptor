@@ -8,51 +8,24 @@
 
 
 
+/*
+ * Converts user input character into a nibble to be used as part of a key/iv.
+ *
+ * c    - the user character given to represent half of a byte of the given key/iv
+ */
 int characterToHex(char c) {
 
-    switch (c) {
-
-        case '0':
-            return 0;
-        case '1':
-            return 1;
-        case '2':
-            return 2;
-        case '3':
-            return 3;
-        case '4':
-            return 4;
-        case '5':
-            return 5;
-        case '6':
-            return 6;
-        case '7':
-            return 7;
-        case '8':
-            return 8;
-        case '9':
-            return 9;
-        case 'A':
-        case 'a':
-            return 0xA;
-        case 'B':
-        case 'b':
-            return 0xB;
-        case 'C':
-        case 'c':
-            return 0xC;
-        case 'D':
-        case 'd':
-            return 0xD;
-        case 'E':
-        case 'e':
-            return 0xE;
-        case 'F':
-        case 'f':
-            return 0xF;
-        default:
-            return -1;
-
+    if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+    {
+        return c;
+    }
+    else if (c >= 'a' && c <= 'z')
+    {
+        return (c - 0x20);
+    }
+    else
+    {
+        return -1;
     }
 
 }
@@ -60,6 +33,8 @@ int characterToHex(char c) {
 
 
 /*
+ * Takes user input in order to build the components necessary for encryption/decryption.
+ *
  * args             - the command line input
  * inputFilename    - the input filename
  * outputFilename   - the output filename
@@ -69,18 +44,18 @@ int characterToHex(char c) {
  */
 int parseInput(int* mode, myKey_t** key, uint8_t** iv, char** inputFilename, char** outputFilename) {
 
-    char* userInput = NULL;
-    size_t size = 0;
+    char* userInput = NULL;     // pointer for user input
+    size_t size = 0;            // returned size of user input
 
     int encryptionMode = 0;     // 0 for ECB encryption, 1 for CBC encryption, 2 for GCM encryption
     int ivInputLength = 0;      // the length of the user input for the iv
     int keyInputLength = 0;     // the length of the user input for the key
-    int keyWordIndex = 0;      // counter used to help build key words
+    int keyWordIndex = 0;       // counter used to help build key words
     int keyIndex = 0;           // index of current keyword being made
-    int keyWordNibble = 0;     // current 4 bits being added to keyword 
-    uint32_t keyWord = 0;      // 
+    int keyWordNibble = 0;      // current 4 bits being added to keyword 
+    uint32_t keyWord = 0;       // current word of the key being built
     int ivPieceNibble = 0;      // current 4 bits being added to iv
-    uint8_t ivPiece = 0;        // 
+    uint8_t ivPiece = 0;        // current iv word being built
 
 
 
@@ -149,7 +124,7 @@ int parseInput(int* mode, myKey_t** key, uint8_t** iv, char** inputFilename, cha
             return -1;
         }
         (*key)->numRounds = AES_128_NUM_ROUNDS;
-        (*key)->keyCanonLength = AES_128_KEY_LENGTH_WORDS;
+        (*key)->keyLengthInWords = AES_128_KEY_LENGTH_WORDS;
         (*key)->RconArraySize = 10;
         
     }
@@ -165,7 +140,7 @@ int parseInput(int* mode, myKey_t** key, uint8_t** iv, char** inputFilename, cha
             return -1;
         }
         (*key)->numRounds = AES_192_NUM_ROUNDS;
-        (*key)->keyCanonLength = AES_192_KEY_LENGTH_WORDS;
+        (*key)->keyLengthInWords = AES_192_KEY_LENGTH_WORDS;
         (*key)->RconArraySize = 8;
 
     }
@@ -181,7 +156,7 @@ int parseInput(int* mode, myKey_t** key, uint8_t** iv, char** inputFilename, cha
             return -1;
         }
         (*key)->numRounds = AES_256_NUM_ROUNDS;
-        (*key)->keyCanonLength = AES_256_KEY_LENGTH_WORDS;
+        (*key)->keyLengthInWords = AES_256_KEY_LENGTH_WORDS;
         (*key)->RconArraySize = 7;
 
     }
