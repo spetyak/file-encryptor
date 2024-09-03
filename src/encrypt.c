@@ -71,7 +71,9 @@ void shiftRows(uint8_t* block) {
 
 }
 
-
+/*
+ * Perform Galois math
+ */
 uint8_t mixMath(uint8_t a, uint8_t b) {
 
     if ((a & 0x80) != 0 && b != 1)
